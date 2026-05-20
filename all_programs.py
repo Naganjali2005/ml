@@ -302,3 +302,190 @@ q4 = infer.query(
 print(q4)
  #----------#
 
+#id3 4th
+import math
+import csv
+
+# ─── LOAD CSV FILE ──────────────────────────────────────────
+def load_csv(filename):
+    with open(filename, "r") as f:
+        lines = list(csv.reader(f))
+
+    headers = lines.pop(0)[1:]   # skip 'Day' column
+    data = [row[1:] for row in lines]
+
+    return data, headers
+
+
+# ─── NODE CLASS ─────────────────────────────────────────────
+class Node:
+    def __init__(self, attribute):
+        self.attribute = attribute
+        self.children = []
+        self.answer = ""
+
+
+# ─── CREATE SUBTABLES ───────────────────────────────────────
+def subtables(data, col, delete):
+    attrs = list(set(row[col] for row in data))
+
+    dic = {a: [] for a in attrs}
+
+    for row in data:
+        r = [v for i, v in enumerate(row)
+             if not(delete and i == col)]
+
+        dic[row[col]].append(r)
+
+    return attrs, dic
+
+
+# ─── ENTROPY FUNCTION ───────────────────────────────────────
+def entropy(S):
+    vals = set(S)
+
+    if len(vals) == 1:
+        return 0
+
+    n = len(S)
+
+    return sum(
+        -S.count(v)/n * math.log2(S.count(v)/n)
+        for v in vals
+    )
+
+
+# ─── INFORMATION GAIN ───────────────────────────────────────
+def compute_gain(data, col):
+    attrs, dic = subtables(data, col, delete=False)
+
+    total = len(data)
+
+    base = entropy([row[-1] for row in data])
+
+    for a in attrs:
+        subset = [row[-1] for row in dic[a]]
+
+        base -= (len(dic[a]) / total) * entropy(subset)
+
+    return base
+
+
+# ─── BUILD TREE ─────────────────────────────────────────────
+def build_tree(data, features):
+
+    labels = [row[-1] for row in data]
+
+    # if all labels same
+    if len(set(labels)) == 1:
+        node = Node("")
+        node.answer = labels[0]
+        return node
+
+    gains = [compute_gain(data, col)
+             for col in range(len(data[0]) - 1)]
+
+    split = gains.index(max(gains))
+
+    node = Node(features[split])
+
+    new_features = features[:split] + features[split+1:]
+
+    attrs, dic = subtables(data, split, delete=True)
+
+    for a in attrs:
+        child = build_tree(dic[a], new_features)
+        node.children.append((a, child))
+
+    return node
+
+
+# ─── PRINT TREE ─────────────────────────────────────────────
+def print_tree(node, level=0):
+
+    if node.answer:
+        print(" " * level, node.answer)
+        return
+
+    print(" " * level, node.attribute)
+
+    for value, child in node.children:
+        print(" " * (level + 1), value)
+        print_tree(child, level + 2)
+
+
+# ─── CLASSIFY NEW SAMPLE ────────────────────────────────────
+def classify(node, x_test, features):
+
+    if node.answer:
+        print(node.answer)
+        return
+
+    pos = features.index(node.attribute)
+
+    for value, child in node.children:
+        if x_test[pos] == value:
+            classify(child, x_test, features)
+
+
+# ─── MAIN PROGRAM ───────────────────────────────────────────
+dataset, features = load_csv("tennis.csv")
+
+tree = build_tree(dataset, features)
+
+print("\nDecision Tree using ID3 Algorithm:\n")
+
+print_tree(tree)
+
+# Test sample
+x_test = ['Sunny', 'Cool', 'High', 'Strong']
+
+print("\nTest Case:", x_test)
+
+print("Predicted Output:")
+classify(tree, x_test, features)
+
+#last
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.naive_bayes import GaussianNB
+from sklearn.preprocessing import LabelEncoder
+
+# Load dataset
+data = pd.read_csv("heart.csv")
+
+# Convert text data into numbers
+encoder = LabelEncoder()
+
+for column in data.columns:
+    data[column] = encoder.fit_transform(data[column])
+
+# Input and output
+X = data.drop("target", axis=1)
+y = data["target"]
+
+# Split dataset
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.3, random_state=42
+)
+
+# Create Bayesian model
+model = GaussianNB()
+
+# Train model
+model.fit(X_train, y_train)
+
+# Predict output
+y_pred = model.predict(X_test)
+
+# Predict probability
+probability = model.predict_proba(X_test)
+
+# Display results together
+print("Prediction Results:\n")
+
+
+for i in range(len(y_pred)):
+    print("Predicted Output :", y_pred[i],
+          " Probability :", probability[i])
+
